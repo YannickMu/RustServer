@@ -1,6 +1,7 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{BufReader, prelude::*, Result, Lines};
 use web_server::ThreadPool;
+use web_server::shutdown;
 
 mod home;
 use home::home;
@@ -11,13 +12,18 @@ fn main() {
 	let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 	let pool = ThreadPool::new(4);
 
-	for stream in listener.incoming() {
+	for stream in listener.incoming().take(2) {
 		let stream = stream.unwrap();
 
 		pool.execute(|| {
 			handle_connection(stream);
 		});
+
+		if shutdown.lock().unwrap().len() == 1 {
+			break;
+		}
 	}
+	drop(pool);
 }
 
 fn handle_connection(mut stream: TcpStream) {
@@ -42,6 +48,9 @@ fn handle_connection(mut stream: TcpStream) {
 		response = home();
 	} else if path.starts_with("/hello?name=") && req_type == "GET" {
 		response = hello(path);
+	} else if path == "/shutdown" && req_type == "GET" {
+		response = format!("HTTP/1.1 200\nContent-Length: 16\n\nShutting down...");
+		shutdown.lock().unwrap().push(1)
 	} else if response.len() == 0 {
 		let content = format!("Oh Oh, looks like {path} does'nt exists.");
 		let length: usize = content.len();
