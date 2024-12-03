@@ -1,25 +1,31 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{BufReader, prelude::*, Result, Lines};
-use web_server::ThreadPool;
-use web_server::shutdown;
+use web_server::SHUTDOWN;
+
+#[path ="lib/threadpool.rs"] mod threadpool;
+use threadpool::ThreadPool;
 
 mod home;
 use home::home;
+
 mod hello;
 use hello::hello;
 
+mod server;
+mod routes;
+
 fn main() {
-	let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
-	let pool = ThreadPool::new(4);
+	let listener: TcpListener = TcpListener::bind("0.0.0.0:8080").unwrap();
+	let pool: ThreadPool = ThreadPool::new(4);
 
 	for stream in listener.incoming().take(2) {
-		let stream = stream.unwrap();
+		let stream: TcpStream = stream.unwrap();
 
 		pool.execute(|| {
 			handle_connection(stream);
 		});
 
-		if shutdown.lock().unwrap().len() == 1 {
+		if SHUTDOWN.lock().unwrap().len() == 1 {
 			break;
 		}
 	}
@@ -27,11 +33,11 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-	let buf_reader = BufReader::new(&stream);
+	let buf_reader: BufReader<&TcpStream> = BufReader::new(&stream);
 	let mut response: String = String::from("");
 	let mut path: &str = "";
 	let mut req_type: &str ="";
-	let lines = buf_reader.lines();
+	let lines: Lines<BufReader<&TcpStream>> = buf_reader.lines();
 
 	let lines: Vec<String> = get_lines(lines).unwrap();
 
@@ -50,7 +56,7 @@ fn handle_connection(mut stream: TcpStream) {
 		response = hello(path);
 	} else if path == "/shutdown" && req_type == "GET" {
 		response = format!("HTTP/1.1 200\nContent-Length: 16\n\nShutting down...");
-		shutdown.lock().unwrap().push(1)
+		SHUTDOWN.lock().unwrap().push(1)
 	} else if response.len() == 0 {
 		let content = format!("Oh Oh, looks like {path} does'nt exists.");
 		let length: usize = content.len();
