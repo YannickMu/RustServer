@@ -3,19 +3,16 @@ use std::sync::Arc;
 
 use threadpool::ThreadPool;
 
-pub struct Route {
-	path: String,
+pub struct Route<'a> {
+	path: &'a str,
 	protected: bool,
-	methodes: Vec<Job>
+	pub GET: Arc<dyn Fn(&str) -> String>
 }
 
-impl Route {
-	pub fn execute<F>(&self, f: Job, pool: ThreadPool)
-		where
-			F: Fn(String) -> String,
-		{
-			pool.execute(|| f);
-		}
+impl Route<'_> {
+	pub fn new(path: &str, protected: bool, GET: Arc<dyn Fn(&str) -> String>) -> Route {
+		Route { path, protected, GET }
+	}
 }
 
-type Job = Arc<dyn Fn(String) -> String>;
+type Job = Box<(dyn FnOnce() -> String + Send + 'static)>;
