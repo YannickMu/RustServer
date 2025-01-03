@@ -57,7 +57,7 @@ fn handle_connection(mut stream: TcpStream) {
 	}
 	if path == "/" && req_type == "GET" {
 		response = home();
-	} else if path.starts_with("/hello?name=") && req_type == "GET" {
+	} else if path.starts_with("/hello") && req_type == "GET" {
 		response = hello(path);
 	} else if path == "/shutdown" && req_type == "GET" {
 		response = (route.GET)("/hello?name=Yannick");
